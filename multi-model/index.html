@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AnimationObjectGroup</title>
+</head>
+<body>
+
+    <script type="text/javascript" src="../src/js/three.js"></script>
+    <script type="text/javascript" src="../src/js/GLTFLoader.js"></script>
+    <script type="text/javascript">
+        //scene
+        var scene = new THREE.Scene()
+
+        //renderer
+        var renderer = new THREE.WebGLRenderer({
+            antialias : true
+        })
+        renderer.setSize(800,800)
+        renderer.setClearColor(0xffffff)
+        document.body.appendChild(renderer.domElement)
+
+        //camera
+        var camera = new THREE.PerspectiveCamera(50,1,1,1000)
+        camera.position.set(0,0,600)
+
+        //light
+        var light = new THREE.AmbientLight(0xcccccc)
+        scene.add(light)
+
+        //loader
+        var loader = new THREE.GLTFLoader()
+        var mixer , animationObj = []
+        var group = new THREE.Group()
+
+        loader.load('model/Horse.glb',function(obj){
+            var lineScene = obj.scene.clone()
+            var mesh = obj.scene.children[0]
+            group.add(mesh)
+
+            //copy mesh
+            var lineMesh = lineScene.children[0]
+            //material属性设置依赖于不同的模型
+            lineMesh.material = new THREE.MeshBasicMaterial({color: 0xfff000 , wireframe : true , morphTargets: true})
+            group.add(lineMesh)
+
+            // animationobjectgroup
+            var animation1 = new THREE.AnimationObjectGroup()
+            animation1.add(mesh)
+
+            var animation2 = new THREE.AnimationObjectGroup()
+            animation2.add(lineMesh)
+
+            animationObj.push(animation1,animation2)
+
+            //mixer
+            mixer = new THREE.AnimationMixer(group)
+
+            var action = mixer.clipAction(obj.animations[0] , animationObj[0])
+            action.play()
+
+            var action2 = mixer.clipAction(obj.animations[0] , animationObj[1])
+            action2.play()
+
+            group.rotation.y = 1.5
+            scene.add(group)
+
+            render()
+        })
+
+        var clock = new THREE.Clock()
+        function render() {
+            requestAnimationFrame(render)
+            mixer.update(clock.getDelta())
+            renderer.render(scene,camera)
+        }
+    </script>
+</body>
+</html>
