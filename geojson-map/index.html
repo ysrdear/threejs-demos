@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>geojson</title>
+</head>
+<body>
+    <!--scripts-->
+    <script type="text/javascript" src="../src/js/three.js"></script>
+    <script type="text/javascript">
+        var scene = new THREE.Scene();
+
+        //renderer
+        var renderer = new THREE.WebGLRenderer({
+            antialias:true
+        });
+        renderer.setSize(800,800);
+        renderer.setClearColor(0xffffff);
+        document.body.appendChild(renderer.domElement);
+
+        //camera
+        var camera = new THREE.PerspectiveCamera(50,1,1,6000);
+        camera.position.set(0,0,1000);
+
+        //light
+        var light = new THREE.AmbientLight(0xcccccc);
+        scene.add(light);
+
+        var spotLight = new THREE.SpotLight(0xcccccc);
+        spotLight.position.set(0,0,1000);
+        scene.add(spotLight);
+
+
+        //load file
+        var loader = new THREE.FileLoader(),
+            group = new THREE.Group(),
+            maxArr = [],
+            minArr = [];
+
+        var setting  = {
+            steps: 2,
+            depth : 40,
+            bevelEnabled:true,
+            bevelThickness:1,
+            bevelSize:1,
+            bevelSegment: 1
+        };
+
+        loader.load('../src/geojson/hunan.json',function (obj) {
+            obj = JSON.parse(obj);
+
+            //get shape
+            var shapes = [] , geos = obj.features;
+
+            for(var i = 0 ; i < geos.length ; i++){
+                shapes[i] = [];
+                for(var j = 0 ; j < geos[i].geometry.coordinates[0].length ; j++){
+                    var coord = geos[i].geometry.coordinates[0][j];
+
+                    if(coord[0] instanceof Array){
+                        for(var k = 0; k < coord.length ; k++){
+                            shapes[i].push(coordToVector(coord[k]));
+                        }
+                    }else{
+                        shapes[i].push(coordToVector(coord));
+                    }
+                }
+
+                var shapeGeometry = new THREE.Shape(shapes[i]);
+
+                var mapGeometry = new THREE.ExtrudeGeometry(shapeGeometry,setting);
+
+                var mapMaterial = new THREE.MeshPhongMaterial({color: 0x205482, opacity:0.5,reflectivity: 0.4 , shininess: 30});
+                var map = new THREE.Mesh(mapGeometry,mapMaterial);
+
+                //every shape compute
+                mapGeometry.computeBoundingBox();
+
+                maxArr.push(mapGeometry.boundingBox.max);
+                minArr.push(mapGeometry.boundingBox.min);
+
+                //border line
+                var material = new THREE.LineBasicMaterial({
+                    color: 0xff0000,
+                    linewidth: 10
+                });
+
+                var geometry = new THREE.Geometry();
+                geometry.vertices = shapes[i].concat();
+                var line = new THREE.Line( geometry, material );
+                line.position.z = 41
+                group.add( line );
+
+                group.add(map);
+            }
+
+            //get center
+            var maxX = maxArr.sort(sort('x'))[0].x,
+                maxY = maxArr.sort(sort('y'))[0].y,
+                minX = minArr.sort(sort('x',true))[0].x,
+                minY = minArr.sort(sort('y',true))[0].y;
+            var offsetX = (maxX - minX)/2 + minX,
+                offsetY = (maxY - minY)/2 + minY;
+
+            group.position.set(-offsetX,-offsetY,0);
+
+            scene.add(group);
+
+            render();
+
+            hoverEvent();
+        });
+
+        //render
+        function render() {
+            requestAnimationFrame(render);
+            renderer.render(scene,camera);
+        }
+
+        //hover every city
+        function hoverEvent(){
+            //raycaster
+            var raycaster =  new THREE.Raycaster(),
+                mouse = new THREE.Vector2(),
+                tmpMaterial = null,
+                tmpobj;
+            document.addEventListener('mousemove',function (e) {
+                mouse.x = (e.clientX / 800) * 2-1;
+                mouse.y = -(e.clientY / 800) * 2 + 1;
+
+                raycaster.setFromCamera(mouse,camera);
+
+                //get intersection
+                var intersection  = raycaster.intersectObjects(group.children);
+
+                //no intersection
+                if(!intersection.length && tmpobj){
+                    tmpobj.material = tmpMaterial;
+                    tmpobj = null;
+                    return;
+                }
+
+                //change intersection
+                if(intersection.length && tmpobj !== intersection[0].object ){
+                    if(tmpobj){
+                        tmpobj.material = tmpMaterial;
+                    }
+                    tmpobj = intersection[0].object;
+                    tmpMaterial = intersection[0].object.material;
+                    tmpobj.material = new THREE.MeshPhongMaterial({color:0xff0000 , opacity: 0.2 , reflectivity: 0.4 });
+                }
+            })
+        }
+
+        //sort
+        function sort(x,desc) {
+            return desc ? function (a, b) {
+                return a[x] - b[x];
+            }: function (a,b) {
+                return b[x] - a[x];
+            }
+        }
+
+        //convert
+        function coordToVector(coord) {
+            var lng = coord[0] , lat = coord[1];
+            var earthRad = 6378137.0;
+            var x = lng * Math.PI/180*earthRad,
+                a = lat * Math.PI/180,
+                y = earthRad/2 * (Math.log(1.0 + Math.sin(a)) / (1.0 - Math.sin(a)));
+            return new THREE.Vector3(x/1000 , y/1000, 0);
+        }
+    </script>
+</body>
+</html>

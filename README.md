@@ -5,5 +5,6 @@
 1. 模型渲染双重材质
  <img src="assets/img/horse.png" />
 
-
-to be continued~
+2. geojson渲染3d地图
+ <img src="assets/img/geojson.png" />
+ 
